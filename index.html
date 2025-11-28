@@ -122,23 +122,34 @@ document.getElementById('globalRechazados').textContent=rechazados;
 document.getElementById('globalAprobacion').textContent=pctAprobacion+'%';
 }
 
-// Validar formato de medición: -25.00 a 5.00 con 2 decimales
-function validarMedicion(valor) {
+// Validar formato de medición: NAP (-3.50 a 5.00) o CDO (-23.50 a 5.00) con 2 decimales
+function validarMedicion(valor, clasificacion = '') {
 	if (!valor || valor.trim() === '') {
 		return { valido: false, mensaje: 'Debe ingresar un valor de medición' };
 	}
 	
+	// Determinar si es NAP o CDO
+	const esNAP = clasificacion && clasificacion.toUpperCase().includes('NAP');
+	const minValor = esNAP ? -3.5 : -23.5;
+	const maxValor = 5.0;
+	
 	// Verificar formato: número opcionalmente negativo, punto, exactamente 2 decimales
-	const regex = /^-?([0-4]?[0-9]|5)\.([0-9]{2})$/;
+	const regex = /^-?([0-9]{1,2})\.([0-9]{2})$/;
 	if (!regex.test(valor)) {
-		return { valido: false, mensaje: 'Formato inválido. Use: -23.50 a 5.00 (ej: -22.45)' };
+		const rangoMsg = esNAP ? '-3.50 a 5.00' : '-23.50 a 5.00';
+		return { valido: false, mensaje: `Formato inválido. Use: ${rangoMsg} (ej: ${esNAP ? '-2.45' : '-22.45'})` };
 	}
 	
 	// Convertir a número para verificar rango
 	const num = parseFloat(valor);
-	if (num < -23.50 || num > 5) {
-		return { valido: false, mensaje: 'Valor fuera de rango. Debe estar entre -23.50 y 5.00' };
+	if (num < minValor || num > maxValor) {
+		const rangoMsg = esNAP ? '-3.50 y 5.00' : '-23.50 y 5.00';
+		const tipoMsg = esNAP ? ' (NAP)' : ' (CDO)';
+		return { valido: false, mensaje: `Valor fuera de rango${tipoMsg}. Debe estar entre ${rangoMsg}` };
 	}
+	
+	return { valido: true, valor: valor };
+}
 	
 	return { valido: true, valor: valor };
 }
@@ -336,8 +347,10 @@ const comentarioEl=document.getElementById('comentario-'+id);
 const valor=valorEl?valorEl.value.trim():'';
 const comentario=comentarioEl?comentarioEl.value.trim():'';
 
-// Validar formato de medición
-const validacion = validarMedicion(valor);
+const m=mediciones.find(x=>x.id===id);if(!m)return;
+
+// Validar formato de medición (pasando clasificación)
+const validacion = validarMedicion(valor, m.clasificacion);
 if (!validacion.valido) {
 	alert(validacion.mensaje);
 	valorEl?.focus();
