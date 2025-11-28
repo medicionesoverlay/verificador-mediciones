@@ -278,6 +278,12 @@ ${compareBtn}
 `;
 }
 
+// Determinar rango según clasificación
+const esNAP = m.clasificacion && m.clasificacion.toUpperCase().includes('NAP');
+const rangoTexto = esNAP ? '-3.50 a 5.00' : '-23.50 a 5.00';
+const ejemploValor = esNAP ? '-2.45' : '-22.45';
+const tipoEquipo = esNAP ? '(NAP)' : '(CDO)';
+
 detalle.innerHTML=`
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
 <div><strong>Clasificación:</strong> ${m.clasificacion||''}</div>
@@ -288,8 +294,8 @@ detalle.innerHTML=`
 ${fotoHtml}
 <div class="form-group">
 <label>Valor de medición:</label>
-<input id="valor-${m.id}" type="text" placeholder="Ej: -22.45" maxlength="6" value="${m.valor_medicion||''}" ${!isPendiente?'readonly':''} style="font-family: monospace;"/>
-<small style="color:var(--muted);display:block;margin-top:4px;">Formato: -23.50 a 5.00 (ej: -22.45)</small>
+<input id="valor-${m.id}" type="text" placeholder="Ej: ${ejemploValor}" maxlength="6" value="${m.valor_medicion||''}" ${!isPendiente?'readonly':''} style="font-family: monospace;"/>
+<small style="color:var(--muted);display:block;margin-top:4px;">Formato ${tipoEquipo}: ${rangoTexto} (ej: ${ejemploValor})</small>
 </div>
 <div class="form-group"><label>Notas/Comentarios del proveedor:</label><textarea readonly>${m.notas_texto||'Sin comentarios'}</textarea></div>
 ${isPendiente?`
