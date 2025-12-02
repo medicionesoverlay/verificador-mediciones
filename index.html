@@ -91,7 +91,20 @@ const fbAuth=firebase.auth();const fbDb=firebase.firestore();
 fbAuth.signInAnonymously().catch(console.error);
 
 let isAuthenticated=false;
-function checkPin(){const inp=document.getElementById('pinInput').value;if(inp===PIN){isAuthenticated=true;document.getElementById('pinModal').classList.remove('active');document.getElementById('app').style.display='block';init();}else{alert('PIN incorrecto');}}
+
+// Función global para verificar PIN
+window.checkPin = function() {
+	const inp=document.getElementById('pinInput').value;
+	if(inp===PIN){
+		isAuthenticated=true;
+		document.getElementById('pinModal').classList.remove('active');
+		document.getElementById('app').style.display='block';
+		init();
+	}else{
+		alert('PIN incorrecto');
+	}
+}
+
 function refrescar(){if(isAuthenticated){renderPendientes();renderRevisados();}}
 
 let mediciones=[];
@@ -147,9 +160,6 @@ function validarMedicion(valor, clasificacion = '') {
 		const tipoMsg = esNAP ? ' (NAP)' : ' (CDO)';
 		return { valido: false, mensaje: `Valor fuera de rango${tipoMsg}. Debe estar entre ${rangoMsg}` };
 	}
-	
-	return { valido: true, valor: valor };
-}
 	
 	return { valido: true, valor: valor };
 }
