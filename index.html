@@ -82,31 +82,51 @@ try{firebase.initializeApp(firebaseConfig);}catch(e){console.error('Error inicia
 const fbAuth=firebase.auth();
 const fbDb=firebase.firestore();
 
-// Habilitar persistencia de Firestore
-fbDb.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn('Persistencia no disponible:',e.code));
+// Configurar timeouts y persistencia
+fbDb.settings({
+cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED,
+merge:true
+});
+fbDb.enablePersistence({synchronizeTabs:true}).catch(err=>console.warn('Persistencia no disponible:',err.code));
 
-// Configurar timeouts
-fbAuth.settings={appVerificationDisabledForTesting:false};
-fbDb.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED});
+let authReady=false;
+let authTimeout=null;
 
-function refrescar(){renderPendientes();renderRevisados();}
+// Auth con timeout de 10 segundos
+fbAuth.signInAnonymously().catch(err=>{
+console.error('❌ Error en auth:',err);
+alert('Error de autenticación. Recarga la página.');
+});
+
+fbAuth.onAuthStateChanged(user=>{
+if(user){
+authReady=true;
+if(authTimeout)clearTimeout(authTimeout);
+console.log('✅ Firebase Auth listo');
+// Cargar mediciones cuando auth esté listo
+cargarMediciones();
+}
+});
+
+authTimeout=setTimeout(()=>{
+if(!authReady){
+console.warn('⚠️ Auth tardando más de lo esperado');
+alert('Conexión lenta. Verifica tu internet.');
+}
+},10000);
+
+window.refrescar=function(){renderPendientes();renderRevisados();}
 
 let mediciones=[];
 let unsubscribe=null;
 
-function init(){
-console.log('Inicializando verificador...');
-
-// Autenticar primero
-fbAuth.signInAnonymously()
-.then(()=>{
-console.log('Autenticado en Firebase');
-
+function cargarMediciones(){
+console.log('Cargando mediciones desde Firebase...');
 // Suscribirse a las mediciones
 unsubscribe=fbDb.collection('mediciones')
 .onSnapshot(
 snap=>{
-console.log('Snapshot recibido:',snap.size,'documentos');
+console.log('✅ Snapshot recibido:',snap.size,'documentos');
 mediciones=snap.docs.map(d=>({id:d.id,...d.data()}));
 console.log('Mediciones cargadas:',mediciones.length);
 updateGlobalStats();
@@ -114,16 +134,14 @@ renderPendientes();
 renderRevisados();
 },
 error=>{
-console.error('Error en snapshot de mediciones:',error);
+console.error('❌ Error en snapshot de mediciones:',error);
 alert('Error al conectar con Firebase. Recarga la página.');
 }
 );
-})
-.catch(e=>{
-console.error('Error de autenticación:',e);
-alert('Error de autenticación con Firebase. Recarga la página.');
-});
+}
 
+function init(){
+console.log('Inicializando verificador...');
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',e=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));e.target.classList.add('active');document.getElementById(e.target.dataset.tab).classList.add('active');}));
 
 // Agregar event listeners para formatear inputs de medición
@@ -262,7 +280,7 @@ card.innerHTML=`
 return card;
 }
 
-function toggleDetalle(safeId,isPendiente,originalId){
+window.toggleDetalle=function(safeId,isPendiente,originalId){
 const detalle=document.getElementById('detalle-'+safeId);
 const card=document.getElementById('card-'+safeId);
 const btn=card?card.querySelector('button'):null;
@@ -340,7 +358,7 @@ btn.innerHTML='👁️ Ver';
 }
 }
 
-function selectFoto(img){
+window.selectFoto=function(img){
 const mainId=img.dataset.main;
 const mainImg=document.getElementById(mainId);
 mainImg.src=img.src;
@@ -349,13 +367,13 @@ img.classList.add('selected');
 }
 
 // Zoom en fotos
-function toggleZoom(img){
+window.toggleZoom=function(img){
 img.classList.toggle('zoomed');
 }
 
 // Comparador de fotos
 let comparadorUrls=[];
-function toggleComparador(compareId,urls){
+window.toggleComparador=function(compareId,urls){
 if(typeof urls==='string')urls=JSON.parse(urls.replace(/&quot;/g,'"'));
 comparadorUrls=urls;
 const div=document.getElementById(compareId);
@@ -364,14 +382,14 @@ div.style.display=div.style.display==='none'?'grid':'none';
 }
 }
 
-function updateCompare(side,safeId,idx){
+window.updateCompare=function(side,safeId,idx){
 const img=document.getElementById(`compare-${side}-${safeId}`);
 if(img&&comparadorUrls[idx]){
 img.src=comparadorUrls[idx];
 }
 }
 
-async function aprobar(id){
+window.aprobar=async function(id){
 const valorEl=document.getElementById('valor-'+id);
 const comentarioEl=document.getElementById('comentario-'+id);
 const valor=valorEl?valorEl.value.trim():'';
@@ -387,13 +405,12 @@ if (!validacion.valido) {
 	return;
 }
 
-const m=mediciones.find(x=>x.id===id);if(!m)return;
 const audit=m.audit||[];
 audit.push({timestamp:new Date().toISOString(),actor:'verificador',action:'APROBADO',details:comentario||'Sin comentarios'});
 await fbDb.collection('mediciones').doc(id).update({estado:'medido',valor_medicion:valor,audit});
 }
 
-async function rechazar(id){
+window.rechazar=async function(id){
 const comentarioEl=document.getElementById('comentario-'+id);
 const comentario=comentarioEl?comentarioEl.value.trim():'';
 if(!comentario){alert('Debes ingresar un comentario al rechazar.');return;}
@@ -440,7 +457,7 @@ fecha_rechazo:new Date().toISOString()
 });
 }
 
-async function exportarRevision(){
+window.exportarRevision=async function(){
 const from=document.getElementById('exportFrom').value;
 const to=document.getElementById('exportTo').value;
 let rev=mediciones.filter(m=>m.estado==='medido');
@@ -459,8 +476,8 @@ let totalFotos=0;
 let fotosDescargadas=0;
 
 // Contar total de fotos
-for(const m of rev){
-const urls=(m.fotos_uris||'').split(';').filter(Boolean);
+for(const medicion of rev){
+const urls=(medicion.fotos_uris||'').split(';').filter(Boolean);
 totalFotos+=urls.length;
 }
 
@@ -548,7 +565,7 @@ btnExport.textContent=originalText;
 }
 
 // Exportar a PDF con fotos
-async function exportarPDF(){
+window.exportarPDF=async function(){
 const from=document.getElementById('exportFrom').value;
 const to=document.getElementById('exportTo').value;
 let rev=mediciones.filter(m=>m.estado==='medido');
