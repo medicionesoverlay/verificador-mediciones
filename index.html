@@ -34,15 +34,7 @@ input[type=text],input[type=date],textarea{background:var(--card);border:1px sol
 </style>
 </head>
 <body>
-<div id="pinModal" class="modal active">
-<div class="modal-content">
-<h2>Acceso Verificador</h2>
-<div class="form-group"><label>PIN:</label><input id="pinInput" type="password" placeholder="Ingresa el PIN"/></div>
-<button onclick="checkPin()">Ingresar</button>
-</div>
-</div>
-
-<div id="app" style="display:none;">
+<div id="app">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
 <h1>Verificador de Mediciones</h1>
 <button onclick="refrescar()" style="background:var(--accent);padding:8px 16px;">🔄 Refrescar</button>
@@ -90,22 +82,7 @@ try{firebase.initializeApp(firebaseConfig);}catch(e){}
 const fbAuth=firebase.auth();const fbDb=firebase.firestore();
 fbAuth.signInAnonymously().catch(console.error);
 
-let isAuthenticated=false;
-
-// Función global para verificar PIN
-window.checkPin = function() {
-	const inp=document.getElementById('pinInput').value;
-	if(inp===PIN){
-		isAuthenticated=true;
-		document.getElementById('pinModal').classList.remove('active');
-		document.getElementById('app').style.display='block';
-		init();
-	}else{
-		alert('PIN incorrecto');
-	}
-}
-
-function refrescar(){if(isAuthenticated){renderPendientes();renderRevisados();}}
+function refrescar(){renderPendientes();renderRevisados();}
 
 let mediciones=[];
 function init(){
@@ -602,6 +579,10 @@ btnPDF.textContent=originalText;
 }
 }
 }
+</script>
+<script>
+// Iniciar aplicación al cargar
+window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
