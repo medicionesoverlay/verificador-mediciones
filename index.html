@@ -78,15 +78,52 @@ input[type=text],input[type=date],textarea{background:var(--card);border:1px sol
 const PIN='598393';
 const WEBAPP_URL='https://script.google.com/macros/s/AKfycbyDnVKacuGsKljlzkotLUKN5StjW5XyQPl-2nm1FkIqGWGKbNkY36zCmPAb-Y2fr5tlbA/exec';
 const firebaseConfig={apiKey:"AIzaSyCh8gYPHnQeYC3_SPV8QNctWVFAqYLMQeU",authDomain:"medicionesodn.firebaseapp.com",projectId:"medicionesodn",appId:"1:650664889209:web:193469c06809de2f653da8"};
-try{firebase.initializeApp(firebaseConfig);}catch(e){}
-const fbAuth=firebase.auth();const fbDb=firebase.firestore();
-fbAuth.signInAnonymously().catch(console.error);
+try{firebase.initializeApp(firebaseConfig);}catch(e){console.error('Error inicializando Firebase:',e);}
+const fbAuth=firebase.auth();
+const fbDb=firebase.firestore();
+
+// Habilitar persistencia de Firestore
+fbDb.enablePersistence({synchronizeTabs:true}).catch(e=>console.warn('Persistencia no disponible:',e.code));
+
+// Configurar timeouts
+fbAuth.settings={appVerificationDisabledForTesting:false};
+fbDb.settings({cacheSizeBytes:firebase.firestore.CACHE_SIZE_UNLIMITED});
 
 function refrescar(){renderPendientes();renderRevisados();}
 
 let mediciones=[];
+let unsubscribe=null;
+
 function init(){
-fbDb.collection('mediciones').onSnapshot(snap=>{mediciones=snap.docs.map(d=>({id:d.id,...d.data()}));updateGlobalStats();renderPendientes();renderRevisados();});
+console.log('Inicializando verificador...');
+
+// Autenticar primero
+fbAuth.signInAnonymously()
+.then(()=>{
+console.log('Autenticado en Firebase');
+
+// Suscribirse a las mediciones
+unsubscribe=fbDb.collection('mediciones')
+.onSnapshot(
+snap=>{
+console.log('Snapshot recibido:',snap.size,'documentos');
+mediciones=snap.docs.map(d=>({id:d.id,...d.data()}));
+console.log('Mediciones cargadas:',mediciones.length);
+updateGlobalStats();
+renderPendientes();
+renderRevisados();
+},
+error=>{
+console.error('Error en snapshot de mediciones:',error);
+alert('Error al conectar con Firebase. Recarga la página.');
+}
+);
+})
+.catch(e=>{
+console.error('Error de autenticación:',e);
+alert('Error de autenticación con Firebase. Recarga la página.');
+});
+
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',e=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));e.target.classList.add('active');document.getElementById(e.target.dataset.tab).classList.add('active');}));
 
 // Agregar event listeners para formatear inputs de medición
